@@ -1,5 +1,5 @@
 CC=propeller-elf-gcc
-C_FLAGS= -m32bit-doubles -Os -mcmm -std=c99 -s
+C_FLAGS= -m32bit-doubles -Os -mcog -std=c99 -s
 INC=-Ilib/libsimpletools -Ilib/libsimpletext -Ilib/libsimplei2c
 LIB=-Llib/libsimpletools/cmm -Llib/libsimpletext/cmm
 LINK=-lm -lsimpletext
@@ -8,8 +8,11 @@ SERIAL=/dev/ttyUSB0
 
 #
 all: out
-	$(CC) $(INC) $(LIB) -o out/firmware.elf $(C_FLAGS) src/main.c $(LINK)
-#
+	$(CC) $(INC) $(LIB) -o out/firmware.elf $(C_FLAGS) src/main.c $(LINK) out/pwm.cog
+
+pwm:
+	$(CC) $(INC) $(LIB) -o out/pwm.cog $(C_FLAGS) src/pwm.cogc
+
 assemble: out
 	$(CC) $(INC) $(LIB) -S $(C_FLAGS) src/main.c $(LINK)
 #
@@ -28,4 +31,4 @@ run: flash
 	screen $(SERIAL) 115200
 
 clean:
-	rm out/*.o out/*.elf out/*.binary
+	rm -rf out
