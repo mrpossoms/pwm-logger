@@ -1,5 +1,5 @@
 CC=propeller-elf-gcc
-C_FLAGS= -m32bit-doubles -Os -mcog -std=c99 -s
+C_FLAGS= -std=c99 -mcog -g
 INC=-Ilib/libsimpletools -Ilib/libsimpletext -Ilib/libsimplei2c
 LIB=-Llib/libsimpletools/cmm -Llib/libsimpletext/cmm
 LINK=-lm -lsimpletext
@@ -7,11 +7,12 @@ LINK=-lm -lsimpletext
 SERIAL=/dev/ttyUSB0
 
 #
-all: out
-	$(CC) $(INC) $(LIB) -o out/firmware.elf $(C_FLAGS) src/main.c $(LINK) out/pwm.cog
+all: out out/pwm.cog
+	$(CC) $(INC) $(LIB) -o out/firmware.elf $(C_FLAGS) src/main.c out/pwm.cog $(LINK) 
 
-pwm:
-	$(CC) $(INC) $(LIB) -o out/pwm.cog $(C_FLAGS) src/pwm.cogc
+out/pwm.cog: out
+	propeller-elf-gcc -r -mcog $(C_FLAGS) -o out/pwm.cog -xc src/pwm.cogc
+	propeller-elf-objcopy --localize-text --rename-section .text=pwm.cog out/pwm.cog
 
 assemble: out
 	$(CC) $(INC) $(LIB) -S $(C_FLAGS) src/main.c $(LINK)
