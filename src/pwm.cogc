@@ -1,0 +1,56 @@
+#include <propeller.h>
+#include "pwm-logger.h"
+
+/*
+extern unsigned int _load_start_cogcpwm_cog[];
+const  unsigned int *pwm_code = _load_start_cogcpwm_cog;
+*/
+
+_NAKED void main(volatile pwm_par_t* par)
+{
+		
+	while(1) OUTA |= 0x0F00;
+
+	pwm_par_t p = *par;
+	int last_state = 0, i; // bit field of all input pin states 
+	int starts[p.pins]; // cycle count at the rising edge of a pulse for each pin
+
+	p.passthrough = 1;
+
+	for(;;)
+	{
+		int state = INA; // current input pin states
+		for(i = p.pins; i--;)
+		{
+			int bit = BIT(state, i); // state of bit i
+
+			// was low, but gone high. this is the start of a pulse
+			if(!BIT(last_state, i) && bit)
+			{
+				// remember the cycle count when the pulse started
+				starts[i] = CNT;
+
+				if(p.passthrough)
+				{
+					OUTA |= 1 << (i + p.pin_out_start);	
+				}
+			}
+
+			// was high, but gone low. this is the end of a pulse
+			if(BIT(last_state, i) && !bit)
+			{
+				// calculate the pulse width in cycles
+				// pulse_widths[i + p.pin_start] = CNT - starts[i];
+
+				if(p.passthrough)
+				{
+					OUTA &= ~(1 << (i + p.pin_out_start));	
+				}
+			}
+		}
+
+		last_state = state;
+	}
+
+
+}
