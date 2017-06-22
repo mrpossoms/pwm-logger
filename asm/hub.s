@@ -12,3 +12,4 @@ PUB main
 
 DAT
 #include "pwm-cog.s"
+#include "i2c-cog.s"
