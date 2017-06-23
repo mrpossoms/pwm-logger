@@ -8,6 +8,7 @@ PUB main
 
 	SPIN_SHOULD_ECHO := 1
 	HUB_SHOULD_ECHO := @SPIN_SHOULD_ECHO
+   	cognew(@I2C_DRIVER, 0)
    	cognew(@PWM_WATCHER, 0)
 
 DAT
