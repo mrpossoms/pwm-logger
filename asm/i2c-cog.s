@@ -16,13 +16,12 @@ I2C_DRIVER
 	MOV DIRA, I2C_DIR
 	MOV OUTA, I2C_OUT
 
+:JUNK
 	CALL #WAIT_SC
+	ANDN I2C_OUT, LED_MSK
+	MOV OUTA, I2C_OUT
 	CALL #WAIT_ADDR_FRAME
 
-	MOV A1, #1 'RET_VAL
-	SHL A1, #15	
-
-:JUNK
 	ANDN I2C_OUT, LED0
 	ANDN I2C_OUT, LED1
 	MOV OUTA, I2C_OUT 
@@ -30,30 +29,52 @@ I2C_DRIVER
 
 '---------------
 NEXT_CLOCK
+	MOV I2C_STOPPING, 0
+	
 	WAITPEQ ZERO, SCL_PIN      ' Wait for the clock line to go low
+	MOV I2C_TIMEOUT, CNT
 
 	' LED0 off at low
 	ANDN I2C_OUT, LED0
 	MOV OUTA, I2C_OUT
 
 	WAITPEQ SCL_PIN, SCL_PIN ' Next wait for it to go high
+	SUB I2C_TIMEOUT, CNT
+	ABS I2C_TIMEOUT, I2C_TIMEOUT
+	SHL I2C_TIMEOUT, #1 ' double the timeout
 
-	' LED0 on at low
+	' LED0 on at hi
 	OR I2C_OUT, LED0
 	MOV OUTA, I2C_OUT
 
 	' SDA_BIT becomes a 1 or a 0 depending on the pin state
 	MOV SDA_BIT, INA
 	AND SDA_BIT, SDA_PIN
-	CMP SDA_BIT, ZERO WZ
+	CMP SDA_BIT, ZERO WZ, WR
 
 	' LED1 on at SDA hi
 	IF_Z ANDN I2C_OUT, LED1
-	IF_Z MOV SDA_BIT, #0
+	' IF_Z MOV SDA_BIT, #0
 	IF_NZ OR I2C_OUT, LED1
-	IF_NZ MOV SDA_BIT, #1
+	' IF_NZ MOV SDA_BIT, #1
 	MOV OUTA, I2C_OUT
 
+	' Wait for SCL to go low again, but timeout if it doesnt
+	' in which case a stop condition has been issued
+:CHECK_STOP
+	MOV I2C_TMP, INA
+	AND I2C_TMP, I2C_MSK
+	
+	' Writes Z or C bits if clock goes low
+	CMP I2C_TMP, SDA_PIN  WZ, WC
+	IF_C_OR_Z JMP #:NEXT_CLOCK_DONE
+	
+	DJNZ I2C_TIMEOUT, #:CHECK_STOP
+	' Timeout occured, is SDA high?
+	AND I2C_TMP, SDA_PIN WZ
+	IF_NZ MOV I2C_STOPPING, #1
+	
+:NEXT_CLOCK_DONE
 NEXT_CLOCK_RET RET
 
 '---------------
@@ -158,15 +179,17 @@ ACK_RET RET
 
 
 A1            LONG 0
-'R2            LONG 0
 RET_VAL       LONG 0
 SDA_BIT       LONG 0
+SCL_BIT       LONG 0
 I2C_BYTE      LONG 0
 ZERO          LONG 0
 
 I2C_DIR       LONG 0
 I2C_OUT       LONG 0
-I2C_CLK_SPEED LONG 0
+I2C_TIMEOUT   LONG 0
+I2C_STOPPING  LONG 0
+I2C_TMP       LONG 0
 
 MY_ADDR       LONG $D2  ' 0x69
 ADDR_FRAME    LONG 0 ' Dev addr mentioned by the master
