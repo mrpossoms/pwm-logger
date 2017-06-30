@@ -3,149 +3,137 @@
 '
 	ORG 0
 I2C_DRIVER
-	MOV DIRA, ZERO
 	MOV I2C_MSK, SDA_PIN
 	OR I2C_MSK, SCL_PIN
-	OR SCL_LO_SDA_HI, SDA_PIN
-	OR SCL_HI_SDA_LO, SCL_PIN
-	MOV SCL_HI_SDA_HI, I2C_MSK
-	'OR A1, SCL_PIN
-	'OR A1, SDA_PIN
+
 	OR I2C_DIR, LED_MSK
+	ANDN I2C_OUT, LED_MSK
 	
 	MOV DIRA, I2C_DIR
 	MOV OUTA, I2C_OUT
 
-:JUNK
-	CALL #WAIT_SC
-	ANDN I2C_OUT, LED_MSK
-	MOV OUTA, I2C_OUT
-	CALL #WAIT_ADDR_FRAME
+	'OR I2C_OUT, LED_MSK
+	'MOV OUTA, I2C_OUT
 
-	ANDN I2C_OUT, LED0
-	ANDN I2C_OUT, LED1
-	MOV OUTA, I2C_OUT 
+:JUNK
+	CALL #NEXT_CONDITION
+
+	CALL #WAIT_ADDR_FRAME
+	CMP RET_VAL, #1 WZ
+	IF_NZ JMP #:JUNK
+
+	' We were addressed	
+	CALL #ACK
+
+	CALL #READ_BYTE
+	CALL #ACK
+
+	CALL #NEXT_CONDITION
+
+	WRLONG I2C_BYTE, I2C_SHOULD_ECHO
+	IF_Z MOV I2C_OUT, LED0
+	MOV OUTA, I2C_OUT
+
 	JMP #:JUNK
 
 '---------------
-NEXT_CLOCK
-	MOV I2C_STOPPING, 0
+NEXT_CONDITION
+
+	MOV I2C_STATE, #0
 	
-	WAITPEQ ZERO, SCL_PIN      ' Wait for the clock line to go low
-	MOV I2C_TIMEOUT, CNT
+	ANDN I2C_OUT, LED_MSK
+	'MOV OUTA, I2C_OUT
 
-	' LED0 off at low
-	ANDN I2C_OUT, LED0
-	MOV OUTA, I2C_OUT
-
-	WAITPEQ SCL_PIN, SCL_PIN ' Next wait for it to go high
-	SUB I2C_TIMEOUT, CNT
-	ABS I2C_TIMEOUT, I2C_TIMEOUT
-	SHL I2C_TIMEOUT, #1 ' double the timeout
-
-	' LED0 on at hi
-	OR I2C_OUT, LED0
-	MOV OUTA, I2C_OUT
-
-	' SDA_BIT becomes a 1 or a 0 depending on the pin state
-	MOV SDA_BIT, INA
-	AND SDA_BIT, SDA_PIN
-	CMP SDA_BIT, ZERO WZ, WR
-
-	' LED1 on at SDA hi
-	IF_Z ANDN I2C_OUT, LED1
-	' IF_Z MOV SDA_BIT, #0
-	IF_NZ OR I2C_OUT, LED1
-	' IF_NZ MOV SDA_BIT, #1
-	MOV OUTA, I2C_OUT
-
-	' Wait for SCL to go low again, but timeout if it doesnt
-	' in which case a stop condition has been issued
-:CHECK_STOP
-	MOV I2C_TMP, INA
-	AND I2C_TMP, I2C_MSK
-	
-	' Writes Z or C bits if clock goes low
-	CMP I2C_TMP, SDA_PIN  WZ, WC
-	IF_C_OR_Z JMP #:NEXT_CLOCK_DONE
-	
-	DJNZ I2C_TIMEOUT, #:CHECK_STOP
-	' Timeout occured, is SDA high?
-	AND I2C_TMP, SDA_PIN WZ
-	IF_NZ MOV I2C_STOPPING, #1
-	
-:NEXT_CLOCK_DONE
-NEXT_CLOCK_RET RET
-
-'---------------
-WAIT_SCL_LO
-	WAITPEQ ZERO, SCL_PIN
-WAIT_SCL_LO_RET RET
-
-'-----------------
-WAIT_SC
 	' Set both the SCL and SDA pins to inputs
 	ANDN I2C_DIR, I2C_MSK 
 	MOV DIRA, I2C_DIR
 
-	' Wait for SDA to go HI, with SCL HI
-	WAITPEQ SCL_HI_SDA_HI, I2C_MSK
+	' Wait for high clock
+	WAITPEQ SCL_PIN, SCL_PIN
 
-	' Wait for SDA to go low, and SCL to stay HI
-	WAITPEQ SCL_HI_SDA_LO, I2C_MSK
-WAIT_SC_RET RET	
+	' Get the starting line state
+	MOV I2C_LINE_ST, INA
+	AND I2C_LINE_ST, I2C_MSK
+
+	' Wait peak duration
+:COND_WAIT_PEAK
+	' Get the current line state
+	MOV I2C_TMP, INA
+	AND I2C_TMP, I2C_MSK
+	CMP I2C_TMP, I2C_LINE_ST WZ
+	IF_Z JMP #:COND_WAIT_PEAK   ' No change, keep waiting
+
+	' Get the SDA bit value
+	MOV SDA_BIT, I2C_TMP
+	AND SDA_BIT, SDA_PIN
+
+	' Isolate the clock
+	MOV SCL_BIT, I2C_TMP
+	AND SCL_BIT, SCL_PIN
+	
+	' Did the clock drop lo? Exit loop
+	CMP SCL_BIT, SCL_PIN WZ
+	' LED0 off for lo clock
+	'IF_Z ANDN I2C_OUT, LED0
+	'IF_Z ANDN I2C_OUT, LED2
+	IF_NZ OR I2C_OUT, LED1
+	IF_NZ MOV OUTA, I2C_OUT
+	IF_NZ JMP #:COND_EXIT
+
+	' An SDA edge must have occured
+	AND SDA_BIT, SDA_PIN WZ
+	IF_Z MOV I2C_STATE, #1     ' hi->lo: START occured
+	IF_Z WAITPEQ ZERO, SCL_PIN ' After the START, wait for a low clock
+	IF_Z OR I2C_OUT, LED0
+	IF_NZ MOV I2C_STATE, #2    ' lo->hi: STOP occured
+	IF_NZ OR I2C_OUT, LED2
+	'OR I2C_OUT, LED2
+	'MOV OUTA, I2C_OUT	
+
+:COND_EXIT
+	' convert SDA_BIT to its LSb
+	AND SDA_BIT, SDA_PIN WZ
+	IF_NZ MOV SDA_BIT, #1
+	IF_Z MOV SDA_BIT, #0
+	'IF_NZ OR I2C_OUT, LED0
+	'IF_Z ANDN I2C_OUT, LED0
+
+
+	MOV OUTA, I2C_OUT
+	
+NEXT_CONDITION_RET RET
 
 '---------------
-RECEIVE_BYTE
-	MOV A1, #8
+READ_BYTE
+	MOV READ_COUNT, #8
 	MOV I2C_BYTE, #0
 :RX_NEXT_BIT
-	CALL #NEXT_CLOCK
-	ADD I2C_BYTE, SDA_BIT
+	CALL #NEXT_CONDITION
+
+	' Did we detect a stop condition this cycle?
+	' If so, we should quit reading this byte
+	CMP I2C_STATE, #2 WZ
+	IF_Z MOV I2C_BYTE, #0
+	IF_Z JMP #:READ_BYTE_DONE
+
 	SHL I2C_BYTE, #1
-	DJNZ A1, #:RX_NEXT_BIT
-RECEIVE_BYTE_RET RET
+	ADD I2C_BYTE, SDA_BIT
+	DJNZ READ_COUNT, #:RX_NEXT_BIT
+
+:READ_BYTE_DONE
+READ_BYTE_RET RET
 
 '---------------
 WAIT_ADDR_FRAME
-	' The 8th bit will being set will indicate that
-	' all 7 addr bits have been read
-	MOV ADDR_FRAME, #$02
-
-	' Set both the SCL and SDA pins to inputs
-	ANDN I2C_DIR, I2C_MSK 
-	MOV DIRA, I2C_DIR
-	
-	' Turn LED1 on when address frame reading begins
-	'OR I2C_OUT, LED1
-	'MOV OUTA, I2C_OUT
-
-:WAIT_ADDR_FRAME_CONT
-	CALL #NEXT_CLOCK
-
-	' If SDA is high, set this bit as a 1
-	ADD ADDR_FRAME, SDA_BIT
-	SHL ADDR_FRAME, #1
-
-	' If the 9th bit isn't a 1 yet, then we are
-	' not done reading
-	MOV A1, ADDR_FRAME
-	AND A1, #$100
-	TJZ A1, #:WAIT_ADDR_FRAME_CONT
+	CALL #READ_BYTE
+	MOV RET_VAL, #0
 
 	' The master has finished addressing the slaves.
 	' Were we the one addressed?
-	MOV A1, ADDR_FRAME
-	AND A1, #$FE
-	CMP A1, MY_ADDR WZ
-	IF_NZ MOV RET_VAL, #0
+	MOV ADDR_FRAME, I2C_BYTE
+	AND ADDR_FRAME, #$FE
+	CMP ADDR_FRAME, MY_ADDR WZ
 	IF_NZ JMP #:WAIT_ADDR_FRAME_QUIT
-
-	' We were addressed
-	CALL #ACK	
-
-	OR I2C_OUT, LED2
-	MOV OUTA, I2C_OUT
 
 	' Read the RW bit
 	MOV IS_READ_MODE, SDA_BIT
@@ -161,7 +149,14 @@ ACK
 	OR I2C_DIR, SDA_PIN
 	MOV DIRA, I2C_DIR
 
+	OR I2C_OUT, LED1
+	MOV OUTA, I2C_OUT
+
+	' Wait for the clock to go lo
 	WAITPEQ ZERO, SCL_PIN
+
+	OR I2C_OUT, LED1
+	MOV OUTA, I2C_OUT
 
 	' Drive SDA low
 	ANDN I2C_OUT, SDA_PIN
@@ -169,14 +164,17 @@ ACK
 
 	WAITPEQ SCL_PIN, SCL_PIN
 	WAITPEQ ZERO, SCL_PIN
-	WAITPEQ SCL_PIN, SCL_PIN
-	WAITPEQ ZERO, SCL_PIN
 
 	' Set SDA back to input	
 	ANDN I2C_DIR, SDA_PIN
 	MOV DIRA, I2C_DIR
+
+	ANDN I2C_OUT, LED1
+	MOV OUTA, I2C_OUT
 ACK_RET RET
 
+I2C_SHOULD_ECHO
+	LONG 0
 
 A1            LONG 0
 RET_VAL       LONG 0
@@ -190,10 +188,13 @@ I2C_OUT       LONG 0
 I2C_TIMEOUT   LONG 0
 I2C_STOPPING  LONG 0
 I2C_TMP       LONG 0
+I2C_LINE_ST   LONG 0
+I2C_STATE     LONG 0 ' 0: data, 1: start, 2: stop
 
 MY_ADDR       LONG $D2  ' 0x69
 ADDR_FRAME    LONG 0 ' Dev addr mentioned by the master
 IS_READ_MODE  LONG 0
+READ_COUNT    LONG 0
 SCL_PIN       LONG $020000
 SDA_PIN       LONG $040000
 LED0          LONG $8000

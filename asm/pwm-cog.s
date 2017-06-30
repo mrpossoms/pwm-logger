@@ -19,17 +19,18 @@ PWM_WATCHER
 	' Read from the hub at address 0
 	' the long which indicates if a PWM passthrough
 	' "echo" should be performed
-	RDLONG SHOULD_ECHO, HUB_SHOULD_ECHO
+	RDLONG SHOULD_ECHO, PWM_SHOULD_ECHO
 	'MOV SHOULD_ECHO, #1
 
 :WATCHER_LOOP
+	RDLONG SHOULD_ECHO, PWM_SHOULD_ECHO
 	MOV IN, INA   ' Keep the most recent state somewhere safe
 
 	' Echo pwm signal, this is conditional
-	TEST SHOULD_ECHO, #1 WZ
-	IF_NZ MOV R1, IN
-	IF_NZ SHL R1, #4
-	IF_NZ MOV OUTA, R1
+	CMP SHOULD_ECHO, #1 WZ
+	IF_Z MOV R1, IN
+	IF_Z SHL R1, #4
+	IF_Z MOV OUTA, R1
 
 	' Set counters, point dest and src fields at the right
 	' addresses
@@ -97,7 +98,7 @@ PWM_WATCHER
 
 	JMP #:WATCHER_LOOP
 
-HUB_SHOULD_ECHO
+PWM_SHOULD_ECHO
 	LONG 0
 DBG           LONG 0
 COUNTER       LONG 0
