@@ -33,24 +33,34 @@ I2C_DRIVER
 	TJNZ IS_READ_MODE, #:MASTER_READ
 
 :MASTER_WRITE  ' Master is sending data
+	MOV FIRST, #0
+:MASTER_WRITE_LOOP
 	CALL #READ_BYTE
 
 	' Was this not a data byte? IE START or STOP?
 	AND I2C_STATE, #3 WZ, NR
-	MOV I2C_IS_SR, #1
-	AND I2C_IS_SR, I2C_STATE     ' If it was a start, that means it's a repeated start!
 	IF_NZ JMP #:JUNK
 
 	' If it's a normal byte, send the ack
 	CALL #ACK
 
-	' Do something with the byte
-	WRLONG I2C_BYTE, I2C_SHOULD_ECHO
+	' Is this a repeated start?
+	CMP FIRST, #0 WZ
+	IF_Z MOV SEL_REG, I2C_BYTE ' If no, select the register
+	ADD FIRST, #1
+	IF_NZ JMP #:WRITE_BUF ' If yes, write to where the reg indicates
+	JMP #:MASTER_WRITE_LOOP
 
-	JMP #:MASTER_WRITE
+:WRITE_BUF
+	CMP SEL_REG, #0 WZ
+	IF_Z WRLONG I2C_BYTE, I2C_SHOULD_ECHO
+	JMP #:MASTER_WRITE_LOOP
 :MASTER_WRITE_DONE	
 
 :MASTER_READ   ' Master is receiving data 
+	RDLONG I2C_BYTE, #4 
+	SHR I2C_BYTE, #6
+
 	CALL #WRITE_BYTE
 
 	' Release the SDA, Let the master ACK
@@ -253,6 +263,7 @@ SDA_BIT       LONG 0
 SCL_BIT       LONG 0
 I2C_BYTE      LONG 0
 ZERO          LONG 0
+FIRST         LONG 0
 
 I2C_MSK       LONG $C00000
 I2C_DIR       LONG 0
@@ -264,6 +275,7 @@ I2C_IS_SR     LONG 0
 
 MY_ADDR       LONG $D2  ' 0x69
 ADDR_FRAME    LONG 0 ' Dev addr mentioned by the master
+SEL_REG       LONG 0 ' Selected register
 IS_READ_MODE  LONG 0
 COUNT         LONG 0
 SCL_PIN       LONG $020000

@@ -79,16 +79,16 @@ PWM_WATCHER
 :PWM_HUB_SYNC
 	TJZ NEEDS_SYNC, #:WATCHER_LOOP
 	' Sync up. Send widths to the hub
-	MOV R1, #4
-	SHL R1, out_pin_start
+	MOV R1, out_pin_start
+	'SHL R1, out_pin_start
 	WRLONG WIDTHS + 0, R1
-	ADD R1, #4
-	WRLONG WIDTHS + 1, R1
-	ADD R1, #4
-	WRLONG WIDTHS + 2, R1
-	ADD R1, #4
-	WRLONG WIDTHS + 3, R1
-
+	'ADD R1, #4
+	'WRLONG WIDTHS + 1, R1
+	'ADD R1, #4
+	'WRLONG WIDTHS + 2, R1
+	'ADD R1, #4
+	'WRLONG WIDTHS + 3, R1
+	
 	'ADD DBG, #1
 	'TEST DBG, #1 WZ
 	'MOV R1, #$FF
