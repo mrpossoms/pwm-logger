@@ -7,14 +7,16 @@ PWM_WATCHER
 	' tells the cog which pin it should be reading as
 	' the start pin. It is assumed that the following 3 pins
 	' are also input channels. The next 4 are outputs
-	MOV in_pin_start, PAR
-	MOV out_pin_start, PAR
-	ADD out_pin_start, # 4
+	MOV PWM_IN_MSK, #1
+	SHL PWM_IN_MSK, PAR
+	MOV PWM_OUT_MSK, PWM_IN_MSK
+	SHL PWM_OUT_MSK, #6
 	
 	' Set the output pins to... well, output
-	MOV R1, #$F
-	SHL R1, out_pin_start
-	MOV DIRA, R1
+	MOV PWM_DIR, DIRA
+	OR PWM_DIR, PWM_OUT_MSK
+	ANDN PWM_DIR, PWM_IN_MSK
+	MOV DIRA, PWM_DIR
 	
 	' Read from the hub at address 0
 	' the long which indicates if a PWM passthrough
@@ -22,96 +24,74 @@ PWM_WATCHER
 	RDLONG SHOULD_ECHO, PWM_SHOULD_ECHO
 	'MOV SHOULD_ECHO, #1
 
+	' Compute pulse value address
+	MOV ADDR, PAR
+	SHL ADDR, #2
+	ADD ADDR, #8	
+
 :WATCHER_LOOP
 	RDLONG SHOULD_ECHO, PWM_SHOULD_ECHO
-	MOV IN, INA   ' Keep the most recent state somewhere safe
 
 	' Echo pwm signal, this is conditional
-	CMP SHOULD_ECHO, #1 WZ
-	IF_Z MOV R1, IN
-	IF_Z SHL R1, #4
-	IF_Z MOV OUTA, R1
+	TJNZ SHOULD_ECHO, #:ECHO_LOOP
 
-	' Set counters, point dest and src fields at the right
-	' addresses
-	MOV COUNTER, #4
-	MOVD :SET_START_TIME, #START_TIMES + 4
-	MOVS :FIND_WIDTH, #START_TIMES + 4
-	MOVD :FIND_WIDTH + 1, #WIDTHS + 4
-	MOV NEEDS_SYNC, #0
-:EACH_PIN
-	SUB COUNTER, #1
-	MOV R1, IN
-	SHR R1, COUNTER
-	AND R1, #1
-	
-	MOV R2, LAST_IN
-	SHR R2, COUNTER
-	AND R2, #1
-	ADD COUNTER, #1
-	
-	CMP R1, R2 WZ ' See if we have a rising edge
-	' Z flag is set to 1 on rising edge
 
-:SET_START_TIME
-	' Rising edge was detected. Load the current cycle count
-	' into the right spot in the START_TIMES vector
-	IF_E MOV 0-0, CNT
+:PWM_GEN_LOOP
+	'RDLONG TIME, ADDR
+	MOV TIME, #$74	
 
-	' Falling edge detected. Compute width in cycles 
-	IF_NE MOV R1, CNT
-:FIND_WIDTH
-	IF_NE SUB R1, 0-0
-	IF_NE MOV 0-0, R1
-	IF_NE OR NEEDS_SYNC, #1
+	SHL TIME, #10
 
-	' Modifiy the source and destination fields for
-	' FIND_WIDTH and SET_START_TIME related instructions so
-	' they point to the next respective values
-	SUB  :SET_START_TIME, DEST_LSb 
-	SUBS :FIND_WIDTH, #1
-	SUB  :FIND_WIDTH + 1, DEST_LSb
+	MOV START, CNT
+	ADD START, TIME
+	OR PWM_OUT, PWM_OUT_MSK
+	MOV OUTA, PWM_OUT
+	WAITCNT START, #0
+	ANDN PWM_OUT, PWM_OUT_MSK
+	MOV OUTA, PWM_OUT
 
-	DJNZ COUNTER, #:EACH_PIN
-	
-	MOV LAST_IN, IN
+	MOV START, CNT
+	ADD START, PWM_20MS
+	SUB START, TIME
 
-:PWM_HUB_SYNC
-	TJZ NEEDS_SYNC, #:WATCHER_LOOP
-	' Sync up. Send widths to the hub
-	MOV R1, out_pin_start
-	'SHL R1, out_pin_start
-	WRLONG WIDTHS + 0, R1
-	'ADD R1, #4
-	'WRLONG WIDTHS + 1, R1
-	'ADD R1, #4
-	'WRLONG WIDTHS + 2, R1
-	'ADD R1, #4
-	'WRLONG WIDTHS + 3, R1
-	
-	'ADD DBG, #1
-	'TEST DBG, #1 WZ
-	'MOV R1, #$FF
-	'SHL R1, #4
-	'IF_E MOV OUTA, R1
-	'IF_NE MOV OUTA, #0
+	WAITCNT START, #0
+
+	JMP #:WATCHER_LOOP
+
+:ECHO_LOOP
+	' Wait for pulse high
+	WAITPEQ PWM_IN_MSK, PWM_IN_MSK
+	OR PWM_OUT, PWM_OUT_MSK
+	MOV OUTA, PWM_OUT
+	MOV START, CNT
+
+	' Wait for a low pulse
+	WAITPEQ PWM_ZERO, PWM_IN_MSK
+	ANDN PWM_OUT, PWM_OUT_MSK
+	MOV OUTA, PWM_OUT
+	MOV TIME, CNT
+
+	' Compute the pulse time
+	SUB TIME, START
+ 
+	' Sync with hub
+	WRLONG TIME, ADDR
 
 	JMP #:WATCHER_LOOP
 
 PWM_SHOULD_ECHO
 	LONG 0
-DBG           LONG 0
-COUNTER       LONG 0
-R1            LONG 0
-R2            LONG 0
-NEEDS_SYNC    LONG 0
-DEST_LSb      LONG $200
+
+ADDR          LONG 0
+START         LONG 0
+TIME          LONG 0
 SHOULD_ECHO   LONG 0
-IN            LONG 0
-LAST_IN       LONG 0
-in_pin_start  LONG 0
-out_pin_start LONG 0
-START_TIMES   RES  4
-WIDTHS        RES  4
+PWM_IN_MSK    LONG 0
+PWM_OUT_MSK   LONG 0
+PWM_DIR       LONG 0
+PWM_OUT       LONG 0
+PWM_ZERO      LONG 0
+PWM_20MS      LONG 1600000
+
 '---------------------
 	FIT 496
