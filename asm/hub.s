@@ -4,6 +4,7 @@ _CLKFREQ = 80_000_000
 VAR
 	LONG HUB_SHOULD_ECHO
 	LONG HUB_SERVO_0
+	LONG HUB_SERVO_1
 
 PUB main
 
@@ -14,6 +15,7 @@ PUB main
 	PWM_SERVO_START := @HUB_SERVO_0
    	cognew(@I2C_DRIVER, 0)
    	cognew(@PWM_WATCHER, @HUB_SERVO_0)
+   	cognew(@PWM_WATCHER, @HUB_SERVO_1)
 
 DAT
 #include "pwm-cog.s"
