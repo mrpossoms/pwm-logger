@@ -7,8 +7,12 @@ PWM_WATCHER
 	' tells the cog which pin it should be reading as
 	' the start pin. It is assumed that the following 3 pins
 	' are also input channels. The next 4 are outputs
+	MOV PWM_TMP, PAR
+	SUB PWM_TMP, PWM_SERVO_START
+	SHR PWM_TMP, #2
+
 	MOV PWM_IN_MSK, #1
-	SHL PWM_IN_MSK, PAR
+	SHL PWM_IN_MSK, PWM_TMP 
 	MOV PWM_OUT_MSK, PWM_IN_MSK
 	SHL PWM_OUT_MSK, #6
 	
@@ -26,8 +30,8 @@ PWM_WATCHER
 
 	' Compute pulse value address
 	MOV ADDR, PAR
-	SHL ADDR, #2
-	ADD ADDR, #8	
+	'SHL ADDR, #2
+	'ADD ADDR, #8	
 
 :WATCHER_LOOP
 	RDLONG SHOULD_ECHO, PWM_SHOULD_ECHO
@@ -37,10 +41,10 @@ PWM_WATCHER
 
 
 :PWM_GEN_LOOP
-	'RDLONG TIME, ADDR
-	MOV TIME, #$74	
+	RDLONG TIME, ADDR
+	'MOV TIME, #$74	
 
-	SHL TIME, #10
+	'SHL TIME, #10
 
 	MOV START, CNT
 	ADD START, TIME
@@ -79,6 +83,9 @@ PWM_WATCHER
 
 	JMP #:WATCHER_LOOP
 
+PWM_SERVO_START
+	LONG 0
+
 PWM_SHOULD_ECHO
 	LONG 0
 
@@ -86,6 +93,7 @@ ADDR          LONG 0
 START         LONG 0
 TIME          LONG 0
 SHOULD_ECHO   LONG 0
+PWM_TMP       LONG 0
 PWM_IN_MSK    LONG 0
 PWM_OUT_MSK   LONG 0
 PWM_DIR       LONG 0
