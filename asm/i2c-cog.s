@@ -3,94 +3,92 @@
 '
 	ORG 0
 I2C_DRIVER
-	MOV I2C_MSK, SDA_PIN
-	OR I2C_MSK, SCL_PIN
+	MOV           I2C_MSK, SDA_PIN
+	OR            I2C_MSK, SCL_PIN
 
-	OR I2C_DIR, LED_MSK
-	ANDN I2C_OUT, LED_MSK
+	OR            I2C_DIR, LED_MSK
+	ANDN          I2C_OUT, LED_MSK
 	
-	MOV DIRA, I2C_DIR
-	MOV OUTA, I2C_OUT
+	MOV           DIRA, I2C_DIR
+	MOV           OUTA, I2C_OUT
 
 :JUNK
 	' Wait for start condition
-	CALL #NEXT_CONDITION
-	CMP I2C_STATE, #1 WZ
-	IF_NZ JMP #:JUNK
+	CALL          #NEXT_CONDITION
+	CMP           I2C_STATE, #1 WZ
+	IF_NZ JMP     #:JUNK
 
 	' Read the address frame, if we
 	' were not the ones addressed then start over
-	CALL #WAIT_ADDR_FRAME
-	CMP RET_VAL, #1 WZ
-	IF_NZ JMP #:JUNK
+	CALL          #WAIT_ADDR_FRAME
+	CMP           RET_VAL, #1 WZ
+	IF_NZ JMP     #:JUNK
 
 	' We were addressed	
-	CALL #ACK
-
-	MOV I2C_BYTE, #$42
+	CALL          #ACK
 
 	' Does the master want to read or write?
-	TJNZ IS_READ_MODE, #:MASTER_READ
+	TJNZ          IS_READ_MODE, #:MASTER_READ
 
 :MASTER_WRITE  ' Master is sending data
-	MOV FIRST, #0
+	MOV           FIRST, #0
 :MASTER_WRITE_LOOP
-	CALL #READ_BYTE
+	CALL          #READ_BYTE
 
 	' Was this not a data byte? IE START or STOP?
-	AND I2C_STATE, #3 WZ, NR
-	IF_NZ JMP #:JUNK
+	AND           I2C_STATE, #3 WZ, NR
+	IF_NZ JMP     #:JUNK
 
 	' If it's a normal byte, send the ack
-	CALL #ACK
+	CALL          #ACK
 
 	' Let the first byte select the register
-	CMP FIRST, #0 WZ
-	IF_Z MOV FIRST, #1
-	IF_Z MOV SEL_REG, I2C_BYTE ' If no, select the register
-	IF_NZ JMP #:WRITE_BUF ' If yes, write to where the reg indicates
-	JMP #:MASTER_WRITE_LOOP
+	CMP           FIRST, #0 WZ
+	IF_Z MOV      FIRST, #1
+	IF_Z MOV      SEL_REG, I2C_BYTE ' If no, select the register
+	IF_NZ JMP     #:WRITE_BUF ' If yes, write to where the reg indicates
+	JMP           #:MASTER_WRITE_LOOP
 
 :WRITE_BUF
-	CMP SEL_REG, #0 WZ
-	IF_Z WRLONG I2C_BYTE, I2C_SHOULD_ECHO
-	CMP SEL_REG, #0 WC, WZ
-	IF_NC_AND_NZ SHL I2C_BYTE, #10
-	IF_NC_AND_NZ MOV I2C_TMP, SEL_REG
-	IF_NC_AND_NZ SUB I2C_TMP, #1
-	IF_NC_AND_NZ SHL I2C_TMP, #2
-	IF_NC_AND_NZ ADD I2C_TMP, I2C_SERVO_0
+	CMP                 SEL_REG, #0 WZ
+	IF_Z WRLONG         I2C_BYTE, I2C_SHOULD_ECHO
+	CMP                 SEL_REG, #0 WC, WZ
+	IF_NC_AND_NZ SHL    I2C_BYTE, #10
+	IF_NC_AND_NZ MOV    I2C_TMP, SEL_REG
+	IF_NC_AND_NZ SUB    I2C_TMP, #1
+	IF_NC_AND_NZ SHL    I2C_TMP, #2
+	IF_NC_AND_NZ ADD    I2C_TMP, I2C_SERVO_0
 	IF_NC_AND_NZ WRLONG I2C_BYTE, I2C_TMP
-	ADD SEL_REG, #1
-	JMP #:MASTER_WRITE_LOOP
+	ADD                 SEL_REG, #1
+	JMP                 #:MASTER_WRITE_LOOP
 :MASTER_WRITE_DONE	
 
 
 :MASTER_READ   ' Master is receiving data 
-	MOV COUNT, #0
+	MOV           COUNT, #0
 :MASTER_READ_LOOP
-	MOV I2C_TMP, COUNT
-	SHL I2C_TMP, #2
-	ADD I2C_TMP, I2C_SERVO_0
-	RDLONG I2C_BYTE, I2C_TMP
-	SHR I2C_BYTE, #10
+	MOV           I2C_TMP, COUNT
+	SHL           I2C_TMP, #2
+	ADD           I2C_TMP, I2C_SERVO_0
+	RDLONG        I2C_BYTE, I2C_TMP
+	SHR           I2C_BYTE, #10
 
-	CALL #WRITE_BYTE
+	CALL          #WRITE_BYTE
 
 	' Release the SDA, Let the master ACK
-	CALL #MACK	
+	CALL          #MACK	
 
-	ADD COUNT, #1
+	ADD           COUNT, #1
 
 	' MACK will set RET_VAL to 0 if a NACK was
 	' received from the master
-	TJNZ RET_VAL, #:MASTER_READ_LOOP
+	TJNZ          RET_VAL, #:MASTER_READ_LOOP
 :MASTER_READ_DONE
 
-	IF_Z MOV I2C_OUT, LED0
-	MOV OUTA, I2C_OUT
+	IF_Z MOV      I2C_OUT, LED0
+	MOV           OUTA, I2C_OUT
 
-	JMP #:JUNK
+	JMP           #:JUNK
 
 '---------------
 NEXT_CONDITION
