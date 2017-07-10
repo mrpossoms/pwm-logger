@@ -31,7 +31,9 @@ When configuring or using the PWM logger the first thing that your application w
 
 ## Firmware
 
-The PWM logger's firmware is written in PASM.
+The PWM logger's firmware is written in PASM, the propeller's native language. More information about PASM can be found in the [propeller manual](https://www.parallax.com/sites/default/files/downloads/P8X32A-Web-PropellerManual-v1.2.pdf).
 
 ### Building
+
+To build the firmware you will need to have Parallax's [SimpleIDE](http://learn.parallax.com/tutorials/language/propeller-c/propeller-c-set-simpleide) installed.
 
