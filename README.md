@@ -33,7 +33,35 @@ When configuring or using the PWM logger the first thing that your application w
 
 The PWM logger's firmware is written in PASM, the propeller's native language. More information about PASM can be found in the [propeller manual](https://www.parallax.com/sites/default/files/downloads/P8X32A-Web-PropellerManual-v1.2.pdf).
 
-### Building
+### Building & Flashing
 
-To build the firmware you will need to have Parallax's [SimpleIDE](http://learn.parallax.com/tutorials/language/propeller-c/propeller-c-set-simpleide) installed.
+For all platforms you will need to have Parallax's [SimpleIDE](http://learn.parallax.com/tutorials/language/propeller-c/propeller-c-set-simpleide) installed. It provides the necessary toolchain for assembling the source and flashing it to the propeller chip. You will also need a [Prop Plug](https://www.parallax.com/product/32201) to perform the actual flashing.
+
+#### Mac / Linux
+
+Once you have installed the SimpleIDE you will need to add the toolchain to your `PATH` environment variable. 
+
+On MacOS the toolchain is likely to be found in `/Applications`. In my case, I was able to add it to my path like so.
+
+```
+export PATH="$PATH:/Applications/SimpleIDE.app/Contents/propeller-gcc/bin"
+```
+
+On linux, run the following command.
+
+```
+...
+```
+
+In both cases, you can make the change permanent by adding it to your `.bashrc` file (if bash is your shell).
+
+After that, you should be ready to assemble the program and flash the board by using the following.
+
+```
+make flash
+```
+
+This will both assemble the program and flash the device. The program will run immediately. __Note:__ You may need to change the device file /dev/ttyUSB0 used in the Makefile to match the device file assigned to the Prop Plug on your system.
+
+#### Windows
 
