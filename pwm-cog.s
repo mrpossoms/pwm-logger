@@ -1,3 +1,20 @@
+'
+' This file is part of pwm-logger
+'
+' pwm-logger is free software: you can redistribute it and/or modify
+' it under the terms of the GNU General Public License as published by
+' the Free Software Foundation, either version 3 of the License, or
+' (at your option) any later version.
+'
+' This program is distributed in the hope that it will be useful,
+' but WITHOUT ANY WARRANTY; without even the implied warranty of
+' MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+' GNU General Public License for more details.
+'
+' You should have received a copy of the GNU General Public License
+' along with this program.  If not, see <http://www.gnu.org/licenses/>.
+'
+
 ' --------------------
 ' PWM Watcher routine
 '
@@ -12,16 +29,16 @@ PWM_WATCHER
 	SHR           PWM_TMP, #2
 
 	MOV           PWM_IN_MSK, #1
-	SHL           PWM_IN_MSK, PWM_TMP 
+	SHL           PWM_IN_MSK, PWM_TMP
 	MOV           PWM_OUT_MSK, PWM_IN_MSK
 	SHL           PWM_OUT_MSK, #6
-	
+
 	' Set the output pins to... well, output
 	MOV           PWM_DIR, DIRA
 	OR            PWM_DIR, PWM_OUT_MSK
 	ANDN          PWM_DIR, PWM_IN_MSK
 	MOV           DIRA, PWM_DIR
-	
+
 	' Read from the hub at address 0
 	' the long which indicates if a PWM passthrough
 	' "echo" should be performed
@@ -71,7 +88,7 @@ PWM_WATCHER
 
 	' Compute the pulse time
 	SUB           TIME, START
- 
+
 	' Sync with hub
 	WRLONG        TIME, ADDR
 
