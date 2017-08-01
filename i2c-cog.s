@@ -82,8 +82,10 @@ I2C_DRIVER
 
 
 :REBOOT
-	'MOV           I2C_TMP, #$80
-	'CLKSET        I2C_TMP
+	ANDN I2C_OUT, LED0
+	MOV OUTA, I2C_OUT
+	MOV           I2C_TMP, #$80
+	CLKSET        I2C_TMP
 
 
 :TRANSACTION_LOOP
@@ -92,18 +94,15 @@ I2C_DRIVER
 	CMP           I2C_STATE, #1 WZ
 	IF_NZ JMP     #:TRANSACTION_LOOP
 
-	' Turn on LED2 to indicate I2C traffic
-	OR            I2C_OUT, LED2
-	MOV           OUTA, I2C_OUT
-
 	' Read the address frame, if we
 	' were not the ones addressed then start over
 	CALL          #WAIT_ADDR_FRAME
 	CMP           RET_VAL, #1 WZ
-	' Turn the I2C traffic LED off
-	IF_NZ ANDN    I2C_OUT, LED2
-	IF_NZ MOV     OUTA, I2C_OUT
 	IF_NZ JMP     #:TRANSACTION_LOOP
+
+	' Turn on LED2 to indicate I2C traffic
+	OR            I2C_OUT, LED2
+	MOV           OUTA, I2C_OUT
 
 	' We were addressed
 	CALL          #ACK
@@ -129,30 +128,36 @@ I2C_DRIVER
 
 	' Let the first byte select the register
 	CMP           FIRST, #0 WZ
-	IF_Z MOV      FIRST, #1
 	IF_Z MOV      SEL_REG, I2C_BYTE ' If no, select the register
-	
-	' If the first byte is written to the Reset pseudo register (0x0B), reboot
-	IF_Z CMP      SEL_REG, #$0B WZ
-	'IF_Z JMP      #:REBOOT
+	IF_Z MOV      FIRST, #1
+	IF_Z JMP      #:MASTER_WRITE_LOOP
 
-	IF_NZ JMP     #:WRITE_BUF ' If yes, write to where the reg indicates
+	' If the first byte is written to the Reset pseudo register (0x0B), reboot
+	CMP           SEL_REG, #$0B WZ
+	IF_Z JMP      #:REBOOT
+
+	' Did they select the configuration register?
+	CMP           SEL_REG, #0 WZ
+	IF_Z  JMP     #:SET_ECHO           
+
+	JMP     #:WRITE_BUF ' If yes, write to where the reg indicates
+
+:SET_ECHO
+	CMP           I2C_BYTE, #0 WZ
+	IF_Z ANDN     I2C_OUT, LED1 
+	IF_NZ OR      I2C_OUT, LED1 
+	
+	WRLONG        I2C_BYTE, I2C_SHOULD_ECHO
+	MOV           OUTA, I2C_OUT
 	JMP           #:MASTER_WRITE_LOOP
 
 :WRITE_BUF
-	CMP                 SEL_REG, #0 WZ
-	IF_Z WRLONG         I2C_BYTE, I2C_SHOULD_ECHO
-	' Set the echo status LED (LED1) appropriately
-	IF_Z SHR            I2C_BYTE, #18
-	IF_Z AND            I2C_OUT, I2C_BYTE
-	
-	CMP                 SEL_REG, #0 WC, WZ
-	IF_NC_AND_NZ SHL    I2C_BYTE, #10
-	IF_NC_AND_NZ MOV    I2C_TMP, SEL_REG
-	IF_NC_AND_NZ SUB    I2C_TMP, #1
-	IF_NC_AND_NZ SHL    I2C_TMP, #2
-	IF_NC_AND_NZ ADD    I2C_TMP, I2C_SERVO_0
-	IF_NC_AND_NZ WRLONG I2C_BYTE, I2C_TMP
+	SHL           I2C_BYTE, #10
+	MOV           I2C_TMP, SEL_REG
+	SHL           I2C_TMP, #2
+	ADD           I2C_TMP, I2C_SERVO_0
+	WRLONG        I2C_BYTE, I2C_TMP
+
 	ADD                 SEL_REG, #1
 	JMP                 #:MASTER_WRITE_LOOP
 :MASTER_WRITE_DONE
@@ -238,6 +243,7 @@ NEXT_CONDITION
 	AND           SDA_BIT, SDA_PIN WZ
 	IF_Z MOV      I2C_STATE, #1     ' hi->lo: START occured
 	IF_Z WAITPEQ  ZERO, SCL_PIN ' After the START, wait for a low clock
+	IF_NZ MOV     I2C_STATE, #2    ' lo->hi: STOP occured
 
 :COND_EXIT
 	' convert SDA_BIT to its LSb
@@ -401,8 +407,8 @@ I2C_FIRMWARE_VERSION
 ' Configurable constant registers
 '
 MY_ADDR       LONG $D2  ' 0x69
-SCL_PIN       LONG $010000
-SDA_PIN       LONG $008000
+SCL_PIN       LONG $020000
+SDA_PIN       LONG $010000
 LED0          LONG $040000
 LED1          LONG $080000
 LED2          LONG $100000
