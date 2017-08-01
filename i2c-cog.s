@@ -55,21 +55,55 @@ I2C_DRIVER
 
 	OR            I2C_DIR, LED_MSK
 	ANDN          I2C_OUT, LED_MSK
+	MOV           DIRA, I2C_DIR
+
+:SCROLL ' Just a cool little animation at startup
+	MOV           I2C_TMP, LED_SCRL
+	SHL           I2C_TMP, #17
+	AND           I2C_TMP, LED_MSK
+	ANDN          I2C_OUT, LED_MSK
+	OR            I2C_OUT, I2C_TMP
+	MOV           OUTA, I2C_OUT
+	SHR           LED_SCRL, #1
+	MOV           I2C_TMP, CNT
+	ADD           I2C_TMP, I2C_20MS
+	WAITCNT	      I2C_TMP, #0
+	TJNZ          LED_SCRL, #:SCROLL
+
+
+	' Indicate that the I2C cog started and that it's echoing
+	ANDN          I2C_OUT, LED_MSK
+	OR            I2C_OUT, LED0
+	OR            I2C_OUT, LED1
 
 	MOV           DIRA, I2C_DIR
 	MOV           OUTA, I2C_OUT
+	JMP           #:TRANSACTION_LOOP	
 
-:JUNK
+
+:REBOOT
+	'MOV           I2C_TMP, #$80
+	'CLKSET        I2C_TMP
+
+
+:TRANSACTION_LOOP
 	' Wait for start condition
 	CALL          #NEXT_CONDITION
 	CMP           I2C_STATE, #1 WZ
-	IF_NZ JMP     #:JUNK
+	IF_NZ JMP     #:TRANSACTION_LOOP
+
+	' Turn on LED2 to indicate I2C traffic
+	OR            I2C_OUT, LED2
+	MOV           OUTA, I2C_OUT
 
 	' Read the address frame, if we
 	' were not the ones addressed then start over
 	CALL          #WAIT_ADDR_FRAME
 	CMP           RET_VAL, #1 WZ
-	IF_NZ JMP     #:JUNK
+	' Turn the I2C traffic LED off
+	IF_NZ ANDN    I2C_OUT, LED2
+	IF_NZ MOV     OUTA, I2C_OUT
+	IF_NZ JMP     #:TRANSACTION_LOOP
 
 	' We were addressed
 	CALL          #ACK
@@ -84,7 +118,11 @@ I2C_DRIVER
 
 	' Was this not a data byte? IE START or STOP?
 	AND           I2C_STATE, #3 WZ, NR
-	IF_NZ JMP     #:JUNK
+	' Turn the I2C traffic LED off
+	IF_NZ ANDN    I2C_OUT, LED2
+	IF_NZ MOV     OUTA, I2C_OUT
+
+	IF_NZ JMP     #:TRANSACTION_LOOP
 
 	' If it's a normal byte, send the ack
 	CALL          #ACK
@@ -93,12 +131,21 @@ I2C_DRIVER
 	CMP           FIRST, #0 WZ
 	IF_Z MOV      FIRST, #1
 	IF_Z MOV      SEL_REG, I2C_BYTE ' If no, select the register
+	
+	' If the first byte is written to the Reset pseudo register (0x0B), reboot
+	IF_Z CMP      SEL_REG, #$0B WZ
+	'IF_Z JMP      #:REBOOT
+
 	IF_NZ JMP     #:WRITE_BUF ' If yes, write to where the reg indicates
 	JMP           #:MASTER_WRITE_LOOP
 
 :WRITE_BUF
 	CMP                 SEL_REG, #0 WZ
 	IF_Z WRLONG         I2C_BYTE, I2C_SHOULD_ECHO
+	' Set the echo status LED (LED1) appropriately
+	IF_Z SHR            I2C_BYTE, #18
+	IF_Z AND            I2C_OUT, I2C_BYTE
+	
 	CMP                 SEL_REG, #0 WC, WZ
 	IF_NC_AND_NZ SHL    I2C_BYTE, #10
 	IF_NC_AND_NZ MOV    I2C_TMP, SEL_REG
@@ -111,9 +158,18 @@ I2C_DRIVER
 :MASTER_WRITE_DONE
 
 :MASTER_READ   ' Master is receiving data
-	MOV           COUNT, #0
-:MASTER_READ_LOOP
-	MOV           I2C_TMP, COUNT
+	' Did the master select the version register?
+	CMP           SEL_REG, #$0A WC
+	IF_C JMP      #:MASTER_READ_CHANNELS_LOOP
+
+:MASTER_READ_VERSION
+	RDLONG        I2C_BYTE, I2C_FIRMWARE_VERSION
+	CALL          #WRITE_BYTE
+	CALL          #MACK
+	JMP           #:MASTER_READ_DONE
+
+:MASTER_READ_CHANNELS_LOOP
+	MOV           I2C_TMP, SEL_REG
 	SHL           I2C_TMP, #2
 	ADD           I2C_TMP, I2C_SERVO_0
 	RDLONG        I2C_BYTE, I2C_TMP
@@ -124,17 +180,17 @@ I2C_DRIVER
 	' Release the SDA, Let the master ACK
 	CALL          #MACK
 
-	ADD           COUNT, #1
+	ADD           SEL_REG, #1
 
 	' MACK will set RET_VAL to 0 if a NACK was
 	' received from the master
-	TJNZ          RET_VAL, #:MASTER_READ_LOOP
+	TJNZ          RET_VAL, #:MASTER_READ_CHANNELS_LOOP
 :MASTER_READ_DONE
-
-	IF_Z MOV      I2C_OUT, LED0
+	' Turn the I2C traffic LED off
+	ANDN          I2C_OUT, LED2
 	MOV           OUTA, I2C_OUT
 
-	JMP           #:JUNK
+	JMP           #:TRANSACTION_LOOP
 
 
 '---------------
@@ -146,8 +202,6 @@ I2C_DRIVER
 NEXT_CONDITION
 
 	MOV           I2C_STATE, #0
-
-	ANDN          I2C_OUT, LED_MSK
 
 	' Set both the SCL and SDA pins to inputs
 	ANDN          I2C_DIR, I2C_MSK
@@ -178,18 +232,12 @@ NEXT_CONDITION
 
 	' Did the clock drop lo? Exit loop
 	CMP           SCL_BIT, SCL_PIN WZ
-	' LED0 off for lo clock
-	IF_NZ OR      I2C_OUT, LED1
-	IF_NZ MOV     OUTA, I2C_OUT
 	IF_NZ JMP     #:COND_EXIT
 
 	' An SDA edge must have occured
 	AND           SDA_BIT, SDA_PIN WZ
 	IF_Z MOV      I2C_STATE, #1     ' hi->lo: START occured
 	IF_Z WAITPEQ  ZERO, SCL_PIN ' After the START, wait for a low clock
-	IF_Z OR       I2C_OUT, LED0
-	IF_NZ MOV     I2C_STATE, #2    ' lo->hi: STOP occured
-	IF_NZ OR      I2C_OUT, LED2
 
 :COND_EXIT
 	' convert SDA_BIT to its LSb
@@ -290,20 +338,20 @@ WAIT_ADDR_FRAME_RET RET
 '        otherwise RET_VAL is set to 0.
 MACK
 	' Set the SDA pin to input
-	ANDN I2C_DIR, SDA_PIN
-	MOV DIRA, I2C_DIR
+	ANDN      I2C_DIR, SDA_PIN
+	MOV       DIRA, I2C_DIR
 
 	' Wait for a high clock
-	WAITPEQ SCL_PIN, SCL_PIN
+	WAITPEQ   SCL_PIN, SCL_PIN
 
 	' Get the SDA bit
-	MOV I2C_LINE_ST, INA
-	AND I2C_LINE_ST, SDA_PIN WZ, NR
+	MOV       I2C_LINE_ST, INA
+	AND       I2C_LINE_ST, SDA_PIN WZ, NR
 
 	' Wait for the clock to go low again
-	WAITPEQ ZERO, SCL_PIN
+	WAITPEQ   ZERO, SCL_PIN
 
-	IF_Z MOV RET_VAL, #1
+	IF_Z MOV  RET_VAL, #1
 	IF_NZ MOV RET_VAL, #0
 
 MACK_RET RET
@@ -320,14 +368,8 @@ ACK
 	OR        I2C_DIR, SDA_PIN
 	MOV       DIRA, I2C_DIR
 
-	OR        I2C_OUT, LED1
-	MOV       OUTA, I2C_OUT
-
 	' Wait for the clock to go lo
 	WAITPEQ   ZERO, SCL_PIN
-
-	OR        I2C_OUT, LED1
-	MOV       OUTA, I2C_OUT
 
 	' Drive SDA low
 	ANDN      I2C_OUT, SDA_PIN
@@ -340,10 +382,8 @@ ACK
 	' Set SDA back to input
 	ANDN      I2C_DIR, SDA_PIN
 	MOV       DIRA, I2C_DIR
-
-	ANDN      I2C_OUT, LED1
-	MOV       OUTA, I2C_OUT
 ACK_RET RET
+
 
 '
 ' Pointers in hub memory
@@ -354,16 +394,21 @@ I2C_SERVO_0
 I2C_SHOULD_ECHO
 	LONG 0
 
+I2C_FIRMWARE_VERSION
+	LONG 0
+
 '
 ' Configurable constant registers
 '
 MY_ADDR       LONG $D2  ' 0x69
-SCL_PIN       LONG $020000
-SDA_PIN       LONG $040000
-LED0          LONG $8000
-LED1          LONG $4000
-LED2          LONG $2000
-LED_MSK       LONG $E000
+SCL_PIN       LONG $010000
+SDA_PIN       LONG $008000
+LED0          LONG $040000
+LED1          LONG $080000
+LED2          LONG $100000
+LED_MSK       LONG $1C0000
+LED_SCRL      LONG $44444444
+I2C_20MS      LONG 1600000
 
 '
 ' Working memory registers

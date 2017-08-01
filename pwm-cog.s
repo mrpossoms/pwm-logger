@@ -28,10 +28,13 @@ PWM_WATCHER
 	SUB           PWM_TMP, PWM_SERVO_START
 	SHR           PWM_TMP, #2
 
+	CMP           PWM_TMP, #4 WZ, WC
+	IF_NC_NZ ADD  PWM_TMP, #4
+
 	MOV           PWM_IN_MSK, #1
 	SHL           PWM_IN_MSK, PWM_TMP
 	MOV           PWM_OUT_MSK, PWM_IN_MSK
-	SHL           PWM_OUT_MSK, #6
+	SHL           PWM_OUT_MSK, #4
 
 	' Set the output pins to... well, output
 	MOV           PWM_DIR, DIRA
