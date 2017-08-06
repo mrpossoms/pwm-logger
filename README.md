@@ -1,5 +1,5 @@
 # PWM Logger / Generator
-![logger](https://protean-io.herokuapp.com/imgs/logger.png)
+![logger](https://protean-io.herokuapp.com/imgs/logger.jpg)
 
 ## Overview
 
