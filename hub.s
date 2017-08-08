@@ -40,8 +40,8 @@ PUB main
 	PWM_SERVO_START      := @HUB_SERVO_0
 	I2C_FIRMWARE_VERSION := @HUB_FIRMWARE_VERSION
    	cognew(@I2C_DRIVER, 0)
-   	'cognew(@PWM_WATCHER, @HUB_SERVO_0)
-   	'cognew(@PWM_WATCHER, @HUB_SERVO_1)
+   	cognew(@PWM_WATCHER, @HUB_SERVO_0)
+   	cognew(@PWM_WATCHER, @HUB_SERVO_1)
    	cognew(@PWM_WATCHER, @HUB_SERVO_2)
    	cognew(@PWM_WATCHER, @HUB_SERVO_3)
    	cognew(@PWM_WATCHER, @HUB_SERVO_4)
