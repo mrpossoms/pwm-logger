@@ -26,17 +26,21 @@ PWM_WATCHER
 	' are also input channels. The next 4 are outputs
 	MOV           PWM_TMP, PAR
 	SUB           PWM_TMP, PWM_SERVO_START
+
+	' convert from address space to an index
 	SHR           PWM_TMP, #2
 
-	CMP           PWM_TMP, #4 WZ, WC
-	IF_NC_NZ ADD  PWM_TMP, #4
+	' Shift to the next 4 pins if this cog is watching > channel 3
+	CMP           PWM_TMP, #3 WZ, WC
+	IF_NC_AND_NZ ADD  PWM_TMP, #4
 
+	' Compute the input and output masks
 	MOV           PWM_IN_MSK, #1
 	SHL           PWM_IN_MSK, PWM_TMP
 	MOV           PWM_OUT_MSK, PWM_IN_MSK
 	SHL           PWM_OUT_MSK, #4
 
-	' Set the output pins to... well, output
+	' Set the output pins to output, and the input to input
 	MOV           PWM_DIR, DIRA
 	OR            PWM_DIR, PWM_OUT_MSK
 	ANDN          PWM_DIR, PWM_IN_MSK
@@ -102,6 +106,10 @@ PWM_SERVO_START
 
 PWM_SHOULD_ECHO
 	LONG 0
+
+P_LED0          LONG $040000
+P_LED1          LONG $080000
+P_LED2          LONG $100000
 
 ADDR          LONG 0
 START         LONG 0

@@ -140,7 +140,7 @@ I2C_DRIVER
 	CMP           SEL_REG, #0 WZ
 	IF_Z  JMP     #:SET_ECHO           
 
-	JMP     #:WRITE_BUF ' If yes, write to where the reg indicates
+	JMP     #:WRITE_BUF
 
 :SET_ECHO
 	CMP           I2C_BYTE, #0 WZ
@@ -154,6 +154,7 @@ I2C_DRIVER
 :WRITE_BUF
 	SHL           I2C_BYTE, #10
 	MOV           I2C_TMP, SEL_REG
+	SUB           I2C_TMP, #1       ' Makes SEL_REG 1, write CHAN 0
 	SHL           I2C_TMP, #2
 	ADD           I2C_TMP, I2C_SERVO_0
 	WRLONG        I2C_BYTE, I2C_TMP
@@ -175,6 +176,7 @@ I2C_DRIVER
 
 :MASTER_READ_CHANNELS_LOOP
 	MOV           I2C_TMP, SEL_REG
+	SUB           I2C_TMP, #1
 	SHL           I2C_TMP, #2
 	ADD           I2C_TMP, I2C_SERVO_0
 	RDLONG        I2C_BYTE, I2C_TMP
