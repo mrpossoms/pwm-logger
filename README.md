@@ -1,5 +1,5 @@
 # PWM Logger / Generator
-![logger](https://protean-io.herokuapp.com/imgs/logger.png)
+![logger](https://protean-io.herokuapp.com/imgs/logger.jpg)
 
 ## Overview
 
@@ -28,6 +28,8 @@ When configuring or using the PWM logger the first thing that your application w
   * Once a channel register has been selected with a write, you can continue reading or writing multiple bytes as the selected register will be auto incremented. This allows you to collect data from, or write new timings to, all the servo channels in a single I2C transaction.
   * When the device is in echo mode the measured pulse widths are stored in each respective channel register.
   * When the device has echo mode disabled, the last pulse width in each channel register will be generated on that corresponding channel. That means writing to that register will cause the device to generate that particular pulse width.
+* 0x0A - Firmware revision register: This register contains a single byte indicating the revision of the currently flashed firmware.
+* 0x0B - Hardware reset register: Writing any value to this register will trigger a hardware reset of the board.
 
 ## Firmware
 
