@@ -46,8 +46,8 @@ PUB main
    	cognew(@PWM_WATCHER, @HUB_SERVO_3)
    	cognew(@PWM_WATCHER, @HUB_SERVO_4)
    	cognew(@PWM_WATCHER, @HUB_SERVO_5)
-   	cognew(@PWM_WATCHER, @HUB_SERVO_6)
-   	cognew(@PWM_WATCHER, @HUB_SERVO_7)
+   	'cognew(@PWM_WATCHER, @HUB_SERVO_6)
+   	'cognew(@PWM_WATCHER, @HUB_SERVO_7)
 
 DAT
 #include "pwm-cog.s"
