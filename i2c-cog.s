@@ -38,7 +38,7 @@
 '                   is not. When writing to or reading from a servo channel
 '                   the SEL_REG is automatically incremented so that each
 '                   following channel need not be addressed individually.
-'
+'e
 ' Device configuration - This register controls the device mode.
 '                        A 0 written into this register will take it out
 '                        of echo mode and cause the PWM cogs to generate
@@ -168,8 +168,25 @@ I2C_DRIVER
 	CMP           SEL_REG, #$0A WC
 	IF_C JMP      #:MASTER_READ_CHANNELS_LOOP
 
+	' Did the master select the rotory encoder register?
+	CMP           SEL_REG, #$0C WC
+	IF_C JMP      #:MASTER_READ_ROTOR
+
 :MASTER_READ_VERSION
 	RDLONG        I2C_BYTE, I2C_FIRMWARE_VERSION
+	CALL          #WRITE_BYTE
+	CALL          #MACK
+	JMP           #:MASTER_READ_DONE
+
+:MASTER_READ_ROTOR
+	RDLONG        I2C_TMP, I2C_ROTOR_COUNT
+	MOV           I2C_BYTE, I2C_TMP
+	AND           I2C_BYTE, #$FF
+	CALL          #WRITE_BYTE
+	CALL          #MACK
+	MOV           I2C_BYTE, I2C_TMP
+	SHR           I2C_BYTE, #8
+	AND           I2C_BYTE, #$FF
 	CALL          #WRITE_BYTE
 	CALL          #MACK
 	JMP           #:MASTER_READ_DONE
@@ -403,6 +420,9 @@ I2C_SHOULD_ECHO
 	LONG 0
 
 I2C_FIRMWARE_VERSION
+	LONG 0
+
+I2C_ROTOR_COUNT
 	LONG 0
 
 '
