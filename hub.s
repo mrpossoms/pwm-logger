@@ -42,10 +42,11 @@ PUB main
 	I2C_ROTOR_COUNT      := @HUB_ROTOR_COUNT
 	PWM_SERVO_START      := @HUB_SERVO_0
 	ROTOR_COUNT_PTR      := @HUB_ROTOR_COUNT
+
    	cognew(@I2C_DRIVER, 0)
    	cognew(@ROTARY_WATCHER, 0)
-   	cognew(@PWM_WATCHER, @HUB_SERVO_6)
-   	cognew(@PWM_WATCHER, @HUB_SERVO_7)
+   	cognew(@PWM_WATCHER, @HUB_SERVO_1)
+   	cognew(@PWM_WATCHER, @HUB_SERVO_2)
 
 DAT
 #include "pwm-cog.s"

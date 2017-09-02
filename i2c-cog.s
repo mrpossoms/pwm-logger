@@ -165,12 +165,12 @@ I2C_DRIVER
 
 :MASTER_READ   ' Master is receiving data
 	' Did the master select the version register?
-	CMP           SEL_REG, #$0A WC
-	IF_C JMP      #:MASTER_READ_CHANNELS_LOOP
+	CMP                SEL_REG, #$0A WC
+	IF_C JMP           #:MASTER_READ_CHANNELS_LOOP
 
 	' Did the master select the rotory encoder register?
-	CMP           SEL_REG, #$0C WC
-	IF_C JMP      #:MASTER_READ_ROTOR
+	CMP                SEL_REG, #$0C WC, WZ
+	IF_NC_AND_Z JMP    #:MASTER_READ_ROTOR
 
 :MASTER_READ_VERSION
 	RDLONG        I2C_BYTE, I2C_FIRMWARE_VERSION
@@ -435,7 +435,7 @@ LED0          LONG $040000
 LED1          LONG $080000
 LED2          LONG $100000
 LED_MSK       LONG $1C0000
-LED_SCRL      LONG $44444444
+LED_SCRL      LONG $00004444
 I2C_20MS      LONG 1600000
 
 '
