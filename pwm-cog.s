@@ -29,6 +29,7 @@ PWM_WATCHER
 
 	' convert from address space to an index
 	SHR           PWM_TMP, #2
+	MOV           PWM_IDX, PWM_TMP
 
 	' Shift to the next 4 pins if this cog is watching > channel 3
 	CMP           PWM_TMP, #3 WZ, WC
@@ -56,6 +57,8 @@ PWM_WATCHER
 
 :WATCHER_LOOP
 	RDLONG        SHOULD_ECHO, PWM_SHOULD_ECHO
+	SHR           SHOULD_ECHO, PWM_IDX
+	AND           SHOULD_ECHO, #1
 
 	' Echo pwm signal, this is conditional
 	TJNZ          SHOULD_ECHO, #:ECHO_LOOP
@@ -120,6 +123,7 @@ PWM_IN_MSK    LONG 0
 PWM_OUT_MSK   LONG 0
 PWM_DIR       LONG 0
 PWM_OUT       LONG 0
+PWM_IDX       LONG 0
 PWM_ZERO      LONG 0
 PWM_20MS      LONG 1600000
 
