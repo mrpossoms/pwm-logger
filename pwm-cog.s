@@ -24,20 +24,20 @@ PWM_WATCHER
 	' tells the cog which pin it should be reading as
 	' the start pin. It is assumed that the following 3 pins
 	' are also input channels. The next 4 are outputs
-	MOV           PWM_TMP, PAR
-	SUB           PWM_TMP, PWM_SERVO_START
+	MOV           PWM_TMP_0, PAR
+	SUB           PWM_TMP_0, PWM_SERVO_START
 
 	' convert from address space to an index
-	SHR           PWM_TMP, #2
-	MOV           PWM_IDX, PWM_TMP
+	SHR           PWM_TMP_0, #2
+	MOV           PWM_IDX, PWM_TMP_0
 
 	' Shift to the next 4 pins if this cog is watching > channel 3
-	CMP           PWM_TMP, #3 WZ, WC
-	IF_NC_AND_NZ ADD  PWM_TMP, #4
+	CMP           PWM_TMP_0, #3 WZ, WC
+	IF_NC_AND_NZ ADD  PWM_TMP_0, #4
 
 	' Compute the input and output masks
 	MOV           PWM_IN_MSK, #1
-	SHL           PWM_IN_MSK, PWM_TMP
+	SHL           PWM_IN_MSK, PWM_TMP_0
 	MOV           PWM_OUT_MSK, PWM_IN_MSK
 	SHL           PWM_OUT_MSK, #4
 
@@ -52,10 +52,15 @@ PWM_WATCHER
 	' "echo" should be performed
 	RDLONG        SHOULD_ECHO, PWM_SHOULD_ECHO
 
-	' Compute pulse value address
+	' Compute pulse value addresses
 	MOV           ADDR, PAR
+	MOV           REC_ADDR, PWM_REC_SERVO_START
+	MOV           PWM_TMP_0, PWM_IDX
+	SHL           PWM_TMP_0, #2
+	ADD           REC_ADDR, PWM_TMP_0
 
 :WATCHER_LOOP
+	' Select out the bit for the channel this cog is handling
 	RDLONG        SHOULD_ECHO, PWM_SHOULD_ECHO
 	SHR           SHOULD_ECHO, PWM_IDX
 	AND           SHOULD_ECHO, #1
@@ -75,12 +80,22 @@ PWM_WATCHER
 	ANDN          PWM_OUT, PWM_OUT_MSK
 	MOV           OUTA, PWM_OUT
 
+	' Measure the signal from the reciever and store it
+	WAITPEQ       PWM_IN_MSK, PWM_IN_MSK
+	MOV           PWM_TMP_0, CNT
+	WAITPEQ       PWM_ZERO, PWM_IN_MSK
+	MOV           PWM_TMP_1, CNT
+	SUB           PWM_TMP_1, PWM_TMP_0
+	WRLONG        PWM_TMP_1, REC_ADDR
+
 	' Wait for the remainder of the duty cycle
 	MOV           START, CNT
 	ADD           START, PWM_20MS
 	SUB           START, TIME
 	WAITCNT       START, #0
 
+	' If we are generating a signal, we also want to watch
+	' the reciever lines and save those values seperately
 	JMP           #:WATCHER_LOOP
 
 :ECHO_LOOP
@@ -101,10 +116,15 @@ PWM_WATCHER
 
 	' Sync with hub
 	WRLONG        TIME, ADDR
+	WRLONG        TIME, REC_ADDR
 
 	JMP           #:WATCHER_LOOP
 
+
 PWM_SERVO_START
+	LONG 0
+
+PWM_REC_SERVO_START
 	LONG 0
 
 PWM_SHOULD_ECHO
@@ -115,10 +135,12 @@ P_LED1          LONG $080000
 P_LED2          LONG $100000
 
 ADDR          LONG 0
+REC_ADDR      LONG 0
 START         LONG 0
 TIME          LONG 0
 SHOULD_ECHO   LONG 0
-PWM_TMP       LONG 0
+PWM_TMP_0     LONG 0
+PWM_TMP_1     LONG 0
 PWM_IN_MSK    LONG 0
 PWM_OUT_MSK   LONG 0
 PWM_DIR       LONG 0

@@ -195,7 +195,7 @@ I2C_DRIVER
 	MOV           I2C_TMP, SEL_REG
 	SUB           I2C_TMP, #1
 	SHL           I2C_TMP, #2
-	ADD           I2C_TMP, I2C_SERVO_0
+	ADD           I2C_TMP, I2C_REC_SERVO_0
 	RDLONG        I2C_BYTE, I2C_TMP
 	SHR           I2C_BYTE, #10
 
@@ -414,6 +414,9 @@ ACK_RET RET
 ' Pointers in hub memory
 '
 I2C_SERVO_0
+	LONG 0
+
+I2C_REC_SERVO_0
 	LONG 0
 
 I2C_SHOULD_ECHO
