@@ -25,7 +25,7 @@ PWM_WATCHER
 	' the start pin. It is assumed that the following 3 pins
 	' are also input channels. The next 4 are outputs
 	MOV           PWM_TMP_0, PAR
-	SUB           PWM_TMP_0, PWM_SERVO_START
+	SUB           PWM_TMP_0, PWM_SERVO_START_PTR
 
 	' convert from address space to an index
 	SHR           PWM_TMP_0, #2
@@ -50,18 +50,18 @@ PWM_WATCHER
 	' Read from the hub at address 0
 	' the long which indicates if a PWM passthrough
 	' "echo" should be performed
-	RDLONG        SHOULD_ECHO, PWM_SHOULD_ECHO
+	RDLONG        SHOULD_ECHO, PWM_SHOULD_ECHO_PTR
 
 	' Compute pulse value addresses
 	MOV           ADDR, PAR
-	MOV           REC_ADDR, PWM_REC_SERVO_START
+	MOV           REC_ADDR, PWM_REC_SERVO_START_PTR
 	MOV           PWM_TMP_0, PWM_IDX
 	SHL           PWM_TMP_0, #2
 	ADD           REC_ADDR, PWM_TMP_0
 
 :WATCHER_LOOP
 	' Select out the bit for the channel this cog is handling
-	RDLONG        SHOULD_ECHO, PWM_SHOULD_ECHO
+	RDLONG        SHOULD_ECHO, PWM_SHOULD_ECHO_PTR
 	SHR           SHOULD_ECHO, PWM_IDX
 	AND           SHOULD_ECHO, #1
 
@@ -121,13 +121,13 @@ PWM_WATCHER
 	JMP           #:WATCHER_LOOP
 
 
-PWM_SERVO_START
+PWM_SERVO_START_PTR
 	LONG 0
 
-PWM_REC_SERVO_START
+PWM_REC_SERVO_START_PTR
 	LONG 0
 
-PWM_SHOULD_ECHO
+PWM_SHOULD_ECHO_PTR
 	LONG 0
 
 P_LED0          LONG $040000

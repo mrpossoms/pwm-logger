@@ -136,18 +136,28 @@ I2C_DRIVER
 	CMP           SEL_REG, #$0B WZ
 	IF_Z JMP      #:REBOOT
 
+	' Are they resetting the rotor counter?
+	CMP           SEL_REG, #$0C WZ
+	IF_Z JMP      #:RESET_ROTOR
+
 	' Did they select the configuration register?
 	CMP           SEL_REG, #0 WZ
 	IF_Z  JMP     #:SET_ECHO           
 
 	JMP     #:WRITE_BUF
 
+:RESET_ROTOR
+	WRLONG        ZERO, I2C_ROTOR_COUNT_PTR
+	' Continue with the master write cycle, just
+	' to keep the bus in a good state
+	JMP           #:MASTER_WRITE_LOOP
+
 :SET_ECHO
 	CMP           I2C_BYTE, #0 WZ
 	IF_Z ANDN     I2C_OUT, LED1 
 	IF_NZ OR      I2C_OUT, LED1 
 	
-	WRLONG        I2C_BYTE, I2C_SHOULD_ECHO
+	WRLONG        I2C_BYTE, I2C_SHOULD_ECHO_PTR
 	MOV           OUTA, I2C_OUT
 	JMP           #:MASTER_WRITE_LOOP
 
@@ -156,7 +166,7 @@ I2C_DRIVER
 	MOV           I2C_TMP, SEL_REG
 	SUB           I2C_TMP, #1       ' Makes SEL_REG 1, write CHAN 0
 	SHL           I2C_TMP, #2
-	ADD           I2C_TMP, I2C_SERVO_0
+	ADD           I2C_TMP, I2C_SERVO_0_PTR
 	WRLONG        I2C_BYTE, I2C_TMP
 
 	ADD                 SEL_REG, #1
@@ -173,13 +183,13 @@ I2C_DRIVER
 	IF_NC_AND_Z JMP    #:MASTER_READ_ROTOR
 
 :MASTER_READ_VERSION
-	RDLONG        I2C_BYTE, I2C_FIRMWARE_VERSION
+	RDLONG        I2C_BYTE, I2C_FIRMWARE_VERSION_PTR
 	CALL          #WRITE_BYTE
 	CALL          #MACK
 	JMP           #:MASTER_READ_DONE
 
 :MASTER_READ_ROTOR
-	RDLONG        I2C_TMP, I2C_ROTOR_COUNT
+	RDLONG        I2C_TMP, I2C_ROTOR_COUNT_PTR
 	MOV           I2C_BYTE, I2C_TMP
 	AND           I2C_BYTE, #$FF
 	CALL          #WRITE_BYTE
@@ -195,7 +205,7 @@ I2C_DRIVER
 	MOV           I2C_TMP, SEL_REG
 	SUB           I2C_TMP, #1
 	SHL           I2C_TMP, #2
-	ADD           I2C_TMP, I2C_REC_SERVO_0
+	ADD           I2C_TMP, I2C_REC_SERVO_0_PTR
 	RDLONG        I2C_BYTE, I2C_TMP
 	SHR           I2C_BYTE, #10
 
@@ -413,19 +423,19 @@ ACK_RET RET
 '
 ' Pointers in hub memory
 '
-I2C_SERVO_0
+I2C_SERVO_0_PTR
 	LONG 0
 
-I2C_REC_SERVO_0
+I2C_REC_SERVO_0_PTR
 	LONG 0
 
-I2C_SHOULD_ECHO
+I2C_SHOULD_ECHO_PTR
 	LONG 0
 
-I2C_FIRMWARE_VERSION
+I2C_FIRMWARE_VERSION_PTR
 	LONG 0
 
-I2C_ROTOR_COUNT
+I2C_ROTOR_COUNT_PTR
 	LONG 0
 
 '
